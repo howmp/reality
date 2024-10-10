@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -29,29 +28,27 @@ func (s *serv) Execute(args []string) error {
 
 // Server 反向socks5代理服务端
 type Server struct {
-	config         *reality.ServerConfig
-	portClientAddr string
-	logger         logrus.FieldLogger
-	session        *yamux.Session
-	sessionLock    *sync.Mutex
+	config      *reality.ServerConfig
+	logger      logrus.FieldLogger
+	session     *yamux.Session
+	sessionLock *sync.Mutex
 }
 
 func NewServer(config *reality.ServerConfig) *Server {
 	return &Server{
-		config:         config,
-		portClientAddr: fmt.Sprintf(":%s", config.SNIPort()),
-		logger:         reality.GetLogger(config.Debug),
-		sessionLock:    &sync.Mutex{},
+		config:      config,
+		logger:      reality.GetLogger(config.Debug),
+		sessionLock: &sync.Mutex{},
 	}
 }
 
 // Serve 监听端口,同时接收Reality客户端和用户连接
 func (s *Server) Serve() {
-	l, err := reality.Listen(s.portClientAddr, s.config)
+	l, err := reality.Listen(s.config.ServerAddr, s.config)
 	if err != nil {
 		s.logger.Fatalf("reality listen: %v", err)
 	}
-	s.logger.Infof("reality listen %s", s.portClientAddr)
+	s.logger.Infof("reality listen %s", s.config.ServerAddr)
 	for {
 		conn, err := l.Accept()
 		if err != nil {
