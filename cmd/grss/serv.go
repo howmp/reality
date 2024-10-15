@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -44,11 +45,16 @@ func NewServer(config *reality.ServerConfig) *Server {
 
 // Serve 监听端口,同时接收Reality客户端和用户连接
 func (s *Server) Serve() {
-	l, err := reality.Listen(s.config.ServerAddr, s.config)
+	_, port, err := net.SplitHostPort(s.config.ServerAddr)
+	if err != nil {
+		s.logger.Fatalf("split ServerAddr %s : %v", s.config.ServerAddr, err)
+	}
+	bindAddr := fmt.Sprintf(":%s", port)
+	l, err := reality.Listen(bindAddr, s.config)
 	if err != nil {
 		s.logger.Fatalf("reality listen: %v", err)
 	}
-	s.logger.Infof("reality listen %s", s.config.ServerAddr)
+	s.logger.Infof("reality listen %s", bindAddr)
 	for {
 		conn, err := l.Accept()
 		if err != nil {
