@@ -33,7 +33,7 @@ var seqNumerOne = [8]byte{0, 0, 0, 0, 0, 0, 0, 1}
 // generateNonce 根据SessionKey和ExpireSecond生成Nonce
 func generateNonce(NonceSize int, SessionKey []byte, ExpireSecond uint32) ([]byte, error) {
 	info := make([]byte, 8)
-	binary.BigEndian.PutUint64(info, uint64(time.Now().Unix()%int64(ExpireSecond)))
+	binary.BigEndian.PutUint64(info, uint64(time.Now().Unix()/int64(ExpireSecond)))
 	nonce := make([]byte, NonceSize)
 	_, err := hkdf.New(sha256.New, SessionKey[:], Prefix, info).Read(nonce[:])
 	if err != nil {
