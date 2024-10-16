@@ -123,7 +123,7 @@ func (c *gen) genClient(clientConfig *reality.ClientConfig) error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(path, ClientBin, 0644); err != nil {
+		if err := os.WriteFile(path, ClientBin, 0755); err != nil {
 			return err
 		}
 		c.logger.Infof("generated %s", path)
@@ -147,9 +147,12 @@ func loadConfig(path string) (*reality.ServerConfig, error) {
 }
 
 func replaceClientTemplate(template []byte, configData []byte) ([]byte, error) {
-	pos := bytes.Index(template, cmd.ConfigDataPlaceholder)
+	placeholder := make([]byte, len(cmd.ConfigDataPlaceholder))
+	placeholder[0] = 0xff
+	placeholder[1] = 0xff
+	pos := bytes.Index(template, placeholder)
 	if pos == -1 {
-		return nil, errors.New("config not found")
+		return nil, errors.New("config placeholder not found")
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, len(template)))
 	buf.Write(template[:pos])
