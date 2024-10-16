@@ -148,8 +148,7 @@ func loadConfig(path string) (*reality.ServerConfig, error) {
 
 func replaceClientTemplate(template []byte, configData []byte) ([]byte, error) {
 	placeholder := make([]byte, len(cmd.ConfigDataPlaceholder))
-	placeholder[0] = 0xff
-	placeholder[1] = 0xff
+	copy(placeholder, []byte{0xff, 0xff, 'g', 'r', 's', 'c', 'o', 'n', 'f', 'i', 'g'})
 	pos := bytes.Index(template, placeholder)
 	if pos == -1 {
 		return nil, errors.New("config placeholder not found")
