@@ -27,7 +27,7 @@ func main() {
 		logger.Panic(err)
 	}
 
-	client, err := reality.NewClient(context.Background(), &config, 0)
+	client, err := reality.NewClient(context.Background(), &config)
 	if err != nil {
 		logger.Panic(err)
 	}

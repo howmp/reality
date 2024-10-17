@@ -106,7 +106,7 @@ func (c *ServerConfig) SNIHost() string {
 func (c *ServerConfig) SNIPort() string {
 	return c.sniPort
 }
-func (s *ServerConfig) ToClientConfig() *ClientConfig {
+func (s *ServerConfig) ToClientConfig(overlayData byte) *ClientConfig {
 
 	return &ClientConfig{
 		SNI:             s.sniHost,
@@ -116,6 +116,7 @@ func (s *ServerConfig) ToClientConfig() *ClientConfig {
 		ExpireSecond:    s.ExpireSecond,
 		Debug:           s.Debug,
 		FingerPrint:     s.ClientFingerPrint,
+		OverlayData:     overlayData,
 	}
 }
 

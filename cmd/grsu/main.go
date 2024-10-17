@@ -38,7 +38,7 @@ func (s *serverSession) connectForever() {
 }
 func (s *serverSession) connect() {
 	logger := s.logger
-	client, err := reality.NewClient(context.Background(), s.config, cmd.OverlayGRSU)
+	client, err := reality.NewClient(context.Background(), s.config)
 	if err != nil {
 		logger.Errorf("connect server: %v", err)
 		return
@@ -76,10 +76,12 @@ func main() {
 		println(err.Error())
 		return
 	}
-
-	addr := flag.String("l", "127.0.0.1:61080", "socks5 listen address")
-	flag.Parse()
 	logger := reality.GetLogger(config.Debug)
+	addr := flag.String("l", "127.0.0.1:61080", "socks5 listen address")
+	id := flag.Uint("i", 0, "id")
+	flag.Parse()
+	logger.Infof("server addr: %s, sni: %s, id: %d", config.ServerAddr, config.SNI, byte(*id))
+	config.OverlayData = cmd.NewShortID(false, byte(*id))
 	l, err := net.Listen("tcp", *addr)
 	if err != nil {
 		logger.Panic(err)

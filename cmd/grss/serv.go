@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -27,19 +26,81 @@ func (s *serv) Execute(args []string) error {
 	return nil
 }
 
+type sessionManager struct {
+	logger       logrus.FieldLogger
+	sessions     [128]*yamux.Session
+	sessionsLock [128]sync.Mutex
+}
+
+func (s *sessionManager) createSession(conn net.Conn, id byte) {
+	if s.isSessionOpen(id) {
+		s.logger.Errorf("client(id:%d) session already open, close %s", id, conn.RemoteAddr())
+		conn.Close()
+		return
+	}
+	s.sessionsLock[id].Lock()
+	defer s.sessionsLock[id].Unlock()
+	session, err := yamux.Server(conn, nil)
+	if err != nil {
+		s.logger.Error(err)
+		conn.Close()
+	}
+	go s.checkSession(id, session)
+	s.sessions[id] = session
+	s.logger.Infof("client(id:%d) session opened %s", id, conn.RemoteAddr())
+}
+
+func (s *sessionManager) isSessionOpen(id byte) bool {
+	s.sessionsLock[id].Lock()
+	defer s.sessionsLock[id].Unlock()
+	session := s.sessions[id]
+	if session != nil {
+		return !session.IsClosed()
+	}
+	return false
+}
+
+func (s *sessionManager) openClientSessionStream(id byte) (*yamux.Stream, error) {
+	s.sessionsLock[id].Lock()
+	defer s.sessionsLock[id].Unlock()
+	session := s.sessions[id]
+	if session != nil {
+		stream, err := session.OpenStream()
+		if err != nil {
+			session.Close()
+			s.sessions[id] = nil
+			return nil, err
+		}
+		return stream, nil
+	}
+	return nil, fmt.Errorf("client(id:%d) session not open", id)
+}
+
+func (s *sessionManager) checkSession(id byte, session *yamux.Session) {
+	<-session.CloseChan()
+	s.logger.Infof("client session closed %s", session.RemoteAddr())
+	s.sessionsLock[id].Lock()
+	defer s.sessionsLock[id].Unlock()
+	if s.sessions[id] == session {
+		s.sessions[id] = nil
+	}
+}
+
 // Server 反向socks5代理服务端
 type Server struct {
-	config      *reality.ServerConfig
-	logger      logrus.FieldLogger
-	session     *yamux.Session
-	sessionLock *sync.Mutex
+	config *reality.ServerConfig
+	logger logrus.FieldLogger
+	sm     *sessionManager
 }
 
 func NewServer(config *reality.ServerConfig) *Server {
+	logger := reality.GetLogger(config.Debug)
 	return &Server{
-		config:      config,
-		logger:      reality.GetLogger(config.Debug),
-		sessionLock: &sync.Mutex{},
+		config: config,
+		logger: logger,
+		sm: &sessionManager{
+			logger: logger,
+		},
 	}
 }
 
@@ -63,104 +124,52 @@ func (s *Server) Serve() {
 		}
 
 		if o, ok := conn.(reality.OverlayData); ok {
-			overlayData := o.OverlayData()
+			isGRSC, id := cmd.ParseShortID(o.OverlayData())
+			if isGRSC {
+				s.logger.Infof("accept client(id:%d) %s", id, conn.RemoteAddr())
 
-			if overlayData == cmd.OverlayGRSC {
-				s.logger.Infof("accept client %s", conn.RemoteAddr())
-				go s.handleClient(conn)
+				go s.sm.createSession(conn, id)
 				continue
-			} else if overlayData == cmd.OverlayGRSU {
-				s.logger.Infof("accept user %s", conn.RemoteAddr())
-				go s.handleUser(conn)
+			} else {
+				s.logger.Infof("accept user(id:%d) %s", id, conn.RemoteAddr())
+				go s.handleUser(conn, id)
 				continue
 			}
 		}
-		s.logger.Warnf("accept %s, but overlay wrong", conn.RemoteAddr())
+		s.logger.Warnf("accept %s, but no overlay data", conn.RemoteAddr())
 		conn.Close()
 	}
 }
 
-func (s *Server) handleClient(conn net.Conn) {
-	if s.isSessionOpen() {
-		s.logger.Errorf("client session already open, close %s", conn.RemoteAddr())
-		conn.Close()
-		return
-	}
-	s.sessionLock.Lock()
-	defer s.sessionLock.Unlock()
-	session, err := yamux.Server(conn, nil)
-	if err != nil {
-		s.logger.Error(err)
-		conn.Close()
-	}
-	go s.checkSession(session)
-	s.session = session
-	s.logger.Infof("session opened %s", conn.RemoteAddr())
-}
-
-func (s *Server) handleUser(conn net.Conn) {
+func (s *Server) handleUser(conn net.Conn, id byte) {
 	defer conn.Close()
 
 	session, err := yamux.Client(conn, nil)
 	if err != nil {
-		s.logger.Errorf("yamux: %v", err)
+		s.logger.Errorf("user(id:%d) yamux: %v", id, err)
 		return
 	}
 	defer session.Close()
 	for {
 		stream, err := session.Accept()
 		if err != nil {
-			s.logger.Errorf("user session accept: %v", err)
+			s.logger.Errorf("user(id:%d) session accept: %v", id, err)
 			return
 		}
-		s.logger.Infof("user stream accept %s", stream.RemoteAddr())
-		go s.handleUserStream(stream)
+		s.logger.Infof("user(id:%d) stream accept %s", id, stream.RemoteAddr())
+		go s.handleUserStream(stream, id)
 
 	}
 }
-func (s *Server) handleUserStream(stream net.Conn) {
+func (s *Server) handleUserStream(stream net.Conn, id byte) {
 	defer stream.Close()
-	conn, err := s.openClientSessionStream()
+	conn, err := s.sm.openClientSessionStream(id)
 	if err != nil {
-		s.logger.Errorf("open client session stream: %v", err)
+		s.logger.Errorf("open client(id:%d) session stream: %v", id, err)
 		return
 	}
 	defer conn.Close()
 	go io.Copy(conn, stream)
 	io.Copy(stream, conn)
 
-}
-
-func (s *Server) isSessionOpen() bool {
-	s.sessionLock.Lock()
-	defer s.sessionLock.Unlock()
-	if s.session != nil {
-		return !s.session.IsClosed()
-	}
-	return false
-}
-
-func (s *Server) openClientSessionStream() (*yamux.Stream, error) {
-	s.sessionLock.Lock()
-	defer s.sessionLock.Unlock()
-	if s.session != nil {
-		stream, err := s.session.OpenStream()
-		if err != nil {
-			s.session.Close()
-			s.session = nil
-			return nil, err
-		}
-		return stream, nil
-	}
-	return nil, errors.New("client session not open")
-}
-
-func (s *Server) checkSession(session *yamux.Session) {
-	<-session.CloseChan()
-	s.logger.Infof("client session closed %s", session.RemoteAddr())
-	s.sessionLock.Lock()
-	defer s.sessionLock.Unlock()
-	if s.session == session {
-		s.session = nil
-	}
 }

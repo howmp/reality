@@ -45,7 +45,7 @@ type client struct {
 
 func (c *client) serve() error {
 	c.logger.Infoln("try connect to server")
-	client, err := reality.NewClient(context.Background(), c.config, cmd.OverlayGRSC)
+	client, err := reality.NewClient(context.Background(), c.config)
 	if err != nil {
 		return err
 	}

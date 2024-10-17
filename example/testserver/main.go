@@ -22,7 +22,7 @@ func main() {
 		log.Panic(err)
 	}
 	config.Debug = true
-	jsonData, err := json.MarshalIndent(config.ToClientConfig(), "", "  ")
+	jsonData, err := json.MarshalIndent(config.ToClientConfig(0), "", "  ")
 	if err != nil {
 		log.Panic(err)
 	}

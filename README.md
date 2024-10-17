@@ -26,6 +26,8 @@ grs是一个反向socks5代理,其中grss和grsc和grsu是通过REALITY协议通
 
 若SNIAddr或ServerAddr不指定，则尝试加载已有配置文件
 
+默认生成3个不同id文件名的客户端，可通过`-c`参数指定
+
 ```txt
 Usage:
   grss [OPTIONS] gen [gen-OPTIONS] [SNIAddr] [ServerAddr]
@@ -40,6 +42,7 @@ Help Options:
       -f=[chrome|firefox|safari|ios|android|edge|360|qq]     client finger print (default: chrome)
       -e=                                                    expire second (default: 30)
       -o=                                                    server config output path (default: config.json)
+      -c=                                                    client count (default: 3)
           --dir=                                             client output directory (default: .)
 
 [gen command arguments]
@@ -66,14 +69,20 @@ Help Options:
 
 ### 启动客户端
 
-`grsc`
+`grscX`
+
+**X表示id**
 
 ### 启动用户端
 
-`grsu`
+`grsu -id 0`
+
+**这里id参数对应了grsc的id，不同id会连接不同的grsc**
 
 ```txt
 Usage of grsu:
+  -i uint
+        id
   -l string
         socks5 listen address (default "127.0.0.1:61080")
 ```

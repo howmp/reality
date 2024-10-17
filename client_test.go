@@ -36,7 +36,7 @@ func TestClient(t *testing.T) {
 	}
 	t.Log(string(d))
 
-	_, err = reality.NewClient(context.Background(), config, 0)
+	_, err = reality.NewClient(context.Background(), config)
 	if err == nil {
 		t.Fatal("should error")
 	}
@@ -48,7 +48,7 @@ func TestClientConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := configServer.ToClientConfig()
+	config := configServer.ToClientConfig(0)
 	configData, err := config.Marshal()
 	if err != nil {
 		t.Fatal(err)

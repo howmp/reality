@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	utls "github.com/refraction-networking/utls"
 
@@ -19,6 +21,7 @@ type gen struct {
 	FingerPrint     string `short:"f" default:"chrome" description:"client finger print" choice:"chrome" choice:"firefox" choice:"safari" choice:"ios" choice:"android" choice:"edge" choice:"360" choice:"qq"`
 	ExpireSecond    uint32 `short:"e" default:"30" description:"expire second"`
 	ConfigPath      string `short:"o" default:"config.json" description:"server config output path"`
+	ClientCount     byte   `short:"c" default:"3" description:"client count"`
 	ClientOutputDir string `long:"dir" default:"." description:"client output directory"`
 	Positional      struct {
 		SNIAddr    string `description:"tls server address, e.g. example.com:443"`
@@ -32,6 +35,11 @@ func (c *gen) Execute(args []string) error {
 	c.logger = reality.GetLogger(c.Debug)
 	var config *reality.ServerConfig
 	var err error
+	if c.ClientCount > 128 {
+		return errors.New("client count must less than 128")
+	} else if c.ClientCount == 0 {
+		c.ClientCount = 1
+	}
 	if c.Positional.SNIAddr == "" || c.Positional.ServerAddr == "" {
 		c.logger.Infof("try loading config, path %s", c.ConfigPath)
 		config, err = loadConfig(c.ConfigPath)
@@ -52,7 +60,7 @@ func (c *gen) Execute(args []string) error {
 	if err := c.check(); err != nil {
 		return err
 	}
-	return c.genClient(config.ToClientConfig())
+	return c.genClient(config.ToClientConfig(0))
 
 }
 
@@ -118,6 +126,28 @@ func (c *gen) genClient(clientConfig *reality.ClientConfig) error {
 	}
 
 	for _, name := range AssetNames() {
+		if strings.HasPrefix(name, "grsc") {
+			// 根据客户端数量生成多个客户端
+			for i := 0; i < int(c.ClientCount); i++ {
+				path := filepath.Join(c.ClientOutputDir, fmt.Sprintf("grsc%d%s", i, name[4:]))
+				clientConfig.OverlayData = cmd.NewShortID(true, byte(i))
+				clientConfigData, err := clientConfig.Marshal()
+				if err != nil {
+					return err
+				}
+
+				ClientBin, err := replaceClientTemplate(MustAsset(name), clientConfigData)
+				if err != nil {
+					return err
+				}
+
+				if err := os.WriteFile(path, ClientBin, 0755); err != nil {
+					return err
+				}
+				c.logger.Infof("generated %s", path)
+			}
+			continue
+		}
 		path := filepath.Join(c.ClientOutputDir, name)
 		ClientBin, err := replaceClientTemplate(MustAsset(name), configData)
 		if err != nil {

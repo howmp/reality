@@ -23,9 +23,10 @@ type ClientConfig struct {
 	SNI             string `json:"sni_name"`
 	PublicKeyECDH   string `json:"public_key_ecdh"`
 	PublicKeyVerify string `json:"public_key_verify"`
-	FingerPrint     string `json:"finger_print,omitempty"`
-	ExpireSecond    uint32 `json:"expire_second,omitempty"`
-	Debug           bool   `json:"debug,omitempty"`
+	FingerPrint     string `json:"finger_print"`
+	ExpireSecond    uint32 `json:"expire_second"`
+	Debug           bool   `json:"debug"`
+	OverlayData     byte   `json:"overlay_data"`
 
 	fingerPrint     *utls.ClientHelloID // 客户端的TLS指纹
 	publicKeyECDH   *ecdh.PublicKey     // 用于密钥协商
@@ -133,7 +134,7 @@ func UnmarshalClientConfig(configData []byte) (*ClientConfig, error) {
 	return &config, nil
 }
 
-func NewClient(ctx context.Context, config *ClientConfig, overlayData byte) (net.Conn, error) {
+func NewClient(ctx context.Context, config *ClientConfig) (net.Conn, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -213,10 +214,10 @@ func NewClient(ctx context.Context, config *ClientConfig, overlayData byte) (net
 	is12 := state.Version == versionTLS12
 	if is12 {
 		// 进行我们私有握手，客户端发送附加数据，服务端回复64字节签名数据
-		logger.Debugf("overlayData: %x", overlayData)
+		logger.Debugf("overlayData: %x", config.OverlayData)
 		// record数据前缀模仿seq
 		data := generateRandomData(seqNumerOne[:])
-		data[len(data)-1] = overlayData
+		data[len(data)-1] = config.OverlayData
 		record := newTLSRecord(recordTypeApplicationData, versionTLS12, data)
 		if _, err := record.writeTo(uconn.GetUnderlyingConn()); err != nil {
 			uconn.Close()
@@ -247,7 +248,7 @@ func NewClient(ctx context.Context, config *ClientConfig, overlayData byte) (net
 		}
 		// 服务端回复验证通过
 		logger.Debugln("verify ok")
-		return newWarpConn(uconn.GetUnderlyingConn(), aead, overlayData, seqNumerOne), nil
+		return newWarpConn(uconn.GetUnderlyingConn(), aead, config.OverlayData, seqNumerOne), nil
 	}
 	uconn.Close()
 	return nil, ErrVerifyFailed
