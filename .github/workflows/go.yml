@@ -3,7 +3,10 @@
 
 name: Go
 
-on: push
+on:
+  push:
+    tags:
+      - "v*.*.*"
 
 jobs:
 
@@ -21,11 +24,10 @@ jobs:
       run: |
         go install github.com/go-bindata/go-bindata/...@latest 
         ./build.sh
-        zip -r grs.zip dist/*
         
     - name: Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: grs.zip
+        files: ./dist/*
 
