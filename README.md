@@ -43,6 +43,7 @@ Help Options:
       -e=                                                    expire second (default: 30)
       -o=                                                    server config output path (default: config.json)
       -c=                                                    client count (default: 3)
+      -s                                                     skip client cert verify
           --dir=                                             client output directory (default: .)
 
 [gen command arguments]
@@ -104,3 +105,9 @@ Usage of grsu:
    1. 也可以NTP同步客户端、用户端、服务端时间
 1. 服务端配置重新生成后，也需要使用最新的`grsc`和`grsu`，否则预共享密钥不匹配
 1. 客户端的网络可能被劫持
+
+### 为什么客户端/用户端提示`certificate signed by unknown authority`?
+
+运行环境缺少根证书，可以生成时指定`-s`选项，跳过验证
+
+`grss gen -s www.qq.com:443 127.0.0.1:443`

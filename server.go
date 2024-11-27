@@ -22,6 +22,7 @@ import (
 type ServerConfig struct {
 	SNIAddr           string `json:"sni_addr"`
 	ServerAddr        string `json:"server_addr"`
+	SkipVerify        bool   `json:"skip_verify"`
 	PrivateKeyECDH    string `json:"private_key_ecdh"`
 	PrivateKeySign    string `json:"private_key_sign"`
 	ExpireSecond      uint32 `json:"expire_second"`
@@ -111,6 +112,7 @@ func (s *ServerConfig) ToClientConfig(overlayData byte) *ClientConfig {
 	return &ClientConfig{
 		SNI:             s.sniHost,
 		ServerAddr:      s.ServerAddr,
+		SkipVerify:      s.SkipVerify,
 		PublicKeyECDH:   base64.StdEncoding.EncodeToString(s.privateKeyECDH.PublicKey().Bytes()),
 		PublicKeyVerify: base64.StdEncoding.EncodeToString(s.privateKeySign.Public().(ed25519.PublicKey)),
 		ExpireSecond:    s.ExpireSecond,

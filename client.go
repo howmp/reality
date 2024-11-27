@@ -21,6 +21,7 @@ import (
 type ClientConfig struct {
 	ServerAddr      string `json:"server_addr"`
 	SNI             string `json:"sni_name"`
+	SkipVerify      bool   `json:"skip_verify"`
 	PublicKeyECDH   string `json:"public_key_ecdh"`
 	PublicKeyVerify string `json:"public_key_verify"`
 	FingerPrint     string `json:"finger_print"`
@@ -185,6 +186,7 @@ func NewClient(ctx context.Context, config *ClientConfig) (net.Conn, error) {
 			ServerName:             config.SNI,
 			SessionTicketsDisabled: true,
 			MaxVersion:             utls.VersionTLS12,
+			InsecureSkipVerify:     config.SkipVerify,
 		},
 		*config.fingerPrint,
 	)

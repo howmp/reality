@@ -22,6 +22,7 @@ type gen struct {
 	ExpireSecond    uint32 `short:"e" default:"30" description:"expire second"`
 	ConfigPath      string `short:"o" default:"config.json" description:"server config output path"`
 	ClientCount     byte   `short:"c" default:"3" description:"client count"`
+	SkipVerify      bool   `short:"s" description:"skip client cert verify"`
 	ClientOutputDir string `long:"dir" default:"." description:"client output directory"`
 	Positional      struct {
 		SNIAddr    string `description:"tls server address, e.g. example.com:443"`
@@ -109,6 +110,7 @@ func (c *gen) genConfig() (*reality.ServerConfig, error) {
 	config.Debug = c.Debug
 	config.ClientFingerPrint = c.FingerPrint
 	config.ExpireSecond = c.ExpireSecond
+	config.SkipVerify = c.SkipVerify
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return nil, err
